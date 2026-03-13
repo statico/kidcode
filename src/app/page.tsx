@@ -95,7 +95,19 @@ function HomeContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProjectId]);
 
-  const handleNewProject = async () => {
+  const [isDraft, setIsDraft] = useState(false);
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
+
+  const handleNewProject = () => {
+    setActiveProjectId(null);
+    chat.setMessages([]);
+    setShowPreview(false);
+    setHasPreviewFile(false);
+    setPreviewFile("index.html");
+    setIsDraft(true);
+  };
+
+  const handleDraftSend = async (content: string) => {
     const res = await fetch("/api/projects", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -103,11 +115,19 @@ function HomeContent() {
     });
     const project = await res.json();
     setProjects((prev) => [project, ...prev]);
+    setIsDraft(false);
+    setPendingMessage(content);
     setActiveProjectId(project.id);
-    chat.setMessages([]);
-    setShowPreview(false);
-    setPreviewFile("index.html");
   };
+
+  // Send pending message once projectId is set and chat hook is ready
+  useEffect(() => {
+    if (pendingMessage && activeProjectId) {
+      chat.sendMessage(pendingMessage);
+      setPendingMessage(null);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProjectId, pendingMessage]);
 
   const handleDeleteProject = async (id: string) => {
     await fetch(`/api/projects/${id}`, { method: "DELETE" });
@@ -141,6 +161,7 @@ function HomeContent() {
 
   const handleSelectProject = (id: string) => {
     if (id !== activeProjectId) {
+      setIsDraft(false);
       setActiveProjectId(id);
     }
   };
@@ -155,7 +176,7 @@ function HomeContent() {
         onDeleteProject={handleDeleteProject}
       />
       <div className="flex flex-1 overflow-hidden">
-        {activeProjectId ? (
+        {activeProjectId || isDraft ? (
           <>
             <div className={`flex-1 overflow-hidden ${showPreview ? "w-1/2" : ""}`}>
               <ChatPanel
@@ -164,13 +185,13 @@ function HomeContent() {
                 activity={chat.activity}
                 hasVersions={hasVersions}
                 showPreviewButton={!showPreview && hasPreviewFile}
-                onSend={chat.sendMessage}
+                onSend={isDraft ? handleDraftSend : chat.sendMessage}
                 onStop={chat.stop}
                 onUndo={handleUndo}
                 onShowPreview={() => setShowPreview(true)}
               />
             </div>
-            {showPreview && (
+            {showPreview && activeProjectId && (
               <div className="w-1/2 overflow-hidden">
                 <PreviewPanel
                   projectId={activeProjectId}
