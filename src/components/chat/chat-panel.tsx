@@ -2,6 +2,8 @@
 
 import { useRef, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
+import { Undo2 } from "lucide-react";
 import { MessageBubble } from "./message-bubble";
 import { ChatInput } from "./chat-input";
 import { ActivityIndicator } from "./activity-indicator";
@@ -11,16 +13,20 @@ interface ChatPanelProps {
   messages: ChatMessage[];
   isLoading: boolean;
   activity: string;
+  hasVersions: boolean;
   onSend: (message: string) => void;
   onStop: () => void;
+  onUndo: () => void;
 }
 
 export function ChatPanel({
   messages,
   isLoading,
   activity,
+  hasVersions,
   onSend,
   onStop,
+  onUndo,
 }: ChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -58,6 +64,19 @@ export function ChatPanel({
             onStop={onStop}
             isLoading={isLoading}
           />
+          {hasVersions && !isLoading && (
+            <div className="mt-2 flex justify-center">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs text-muted-foreground"
+                onClick={onUndo}
+              >
+                <Undo2 className="h-3 w-3 mr-1" />
+                Undo last change
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>

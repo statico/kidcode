@@ -9,9 +9,10 @@ A kid-friendly web app that wraps the [Claude Code CLI](https://docs.anthropic.c
 
 KidCode is a Next.js app with a three-panel layout:
 
-- **Sidebar** — project list with create/delete
+- **Sidebar** — project list with create/delete (deleted projects are archived, not destroyed)
 - **Chat** — conversation with Claude, streamed in real-time
 - **Preview** — live iframe showing whatever Claude builds (HTML games, tools, pages)
+- **Undo** — every iteration snapshots project files, so kids can undo mistakes with one click
 
 When you send a message, KidCode spawns `claude -p` as a child process in the project's subdirectory. Claude's streaming JSON output is parsed and forwarded to the browser via Server-Sent Events. When Claude creates or edits HTML files, the preview pane automatically opens and refreshes.
 

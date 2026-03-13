@@ -12,6 +12,7 @@ export default function Home() {
   const [showPreview, setShowPreview] = useState(false);
   const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
   const [previewFile, setPreviewFile] = useState<string>("index.html");
+  const [hasVersions, setHasVersions] = useState(false);
 
   const handleTitle = useCallback(
     async (title: string) => {
@@ -34,6 +35,7 @@ export default function Home() {
     }
     setShowPreview(true);
     setPreviewRefreshKey((k) => k + 1);
+    setHasVersions(true);
   }, []);
 
   const chat = useChat({
@@ -57,6 +59,12 @@ export default function Home() {
       setShowPreview(false);
       setPreviewRefreshKey(0);
       setPreviewFile("index.html");
+
+      // Check for versions
+      fetch(`/api/projects/${activeProjectId}/versions`)
+        .then((r) => r.json())
+        .then((versions: string[]) => setHasVersions(versions.length > 0))
+        .catch(() => setHasVersions(false));
 
       // Check if project has HTML files to preview
       fetch(`/api/projects/${activeProjectId}/files`)
@@ -98,6 +106,26 @@ export default function Home() {
     }
   };
 
+  const handleUndo = async () => {
+    if (!activeProjectId) return;
+    const versionsRes = await fetch(`/api/projects/${activeProjectId}/versions`);
+    const versions = await versionsRes.json();
+    if (versions.length === 0) return;
+
+    const res = await fetch(`/api/projects/${activeProjectId}/versions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ version: versions[0] }),
+    });
+    if (res.ok) {
+      setPreviewRefreshKey((k) => k + 1);
+      // Re-check versions
+      const updatedRes = await fetch(`/api/projects/${activeProjectId}/versions`);
+      const updatedVersions = await updatedRes.json();
+      setHasVersions(updatedVersions.length > 0);
+    }
+  };
+
   const handleSelectProject = (id: string) => {
     if (id !== activeProjectId) {
       setActiveProjectId(id);
@@ -121,8 +149,10 @@ export default function Home() {
                 messages={chat.messages}
                 isLoading={chat.isLoading}
                 activity={chat.activity}
+                hasVersions={hasVersions}
                 onSend={chat.sendMessage}
                 onStop={chat.stop}
+                onUndo={handleUndo}
               />
             </div>
             {showPreview && (

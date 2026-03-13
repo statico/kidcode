@@ -18,6 +18,7 @@ export interface ChatMessage {
 const DATA_DIR = path.join(process.cwd(), "data");
 const PROJECTS_FILE = path.join(DATA_DIR, "projects.json");
 const PROJECTS_DIR = path.join(process.cwd(), "public", "projects");
+const ARCHIVED_DIR = path.join(process.cwd(), "public", "projects", ".archived");
 
 function readProjects(): Project[] {
   try {
@@ -122,10 +123,73 @@ export function deleteProject(id: string): boolean {
   if (index === -1) return false;
   projects.splice(index, 1);
   writeProjects(projects);
-  // Remove project directory
+  // Archive project directory instead of deleting
   const projectDir = getProjectDir(id);
   if (fs.existsSync(projectDir)) {
-    fs.rmSync(projectDir, { recursive: true, force: true });
+    fs.mkdirSync(ARCHIVED_DIR, { recursive: true });
+    const archiveDest = path.join(ARCHIVED_DIR, id);
+    fs.renameSync(projectDir, archiveDest);
   }
+  return true;
+}
+
+export function snapshotProject(id: string): void {
+  const projectDir = getProjectDir(id);
+  if (!fs.existsSync(projectDir)) return;
+
+  const versionsDir = path.join(projectDir, ".versions");
+  fs.mkdirSync(versionsDir, { recursive: true });
+
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const snapshotDir = path.join(versionsDir, timestamp);
+  fs.mkdirSync(snapshotDir, { recursive: true });
+
+  // Copy all project files (excluding .versions and internal files)
+  const entries = fs.readdirSync(projectDir);
+  for (const entry of entries) {
+    if (entry === ".versions") continue;
+    const src = path.join(projectDir, entry);
+    const dest = path.join(snapshotDir, entry);
+    const stat = fs.statSync(src);
+    if (stat.isFile()) {
+      fs.copyFileSync(src, dest);
+    }
+  }
+}
+
+export function listVersions(id: string): string[] {
+  const versionsDir = path.join(getProjectDir(id), ".versions");
+  try {
+    return fs.readdirSync(versionsDir).sort().reverse();
+  } catch {
+    return [];
+  }
+}
+
+export function restoreVersion(id: string, version: string): boolean {
+  const projectDir = getProjectDir(id);
+  const snapshotDir = path.join(projectDir, ".versions", version);
+  if (!fs.existsSync(snapshotDir)) return false;
+
+  // Remove current project files (keep .versions and CLAUDE.md)
+  const entries = fs.readdirSync(projectDir);
+  for (const entry of entries) {
+    if (entry === ".versions" || entry === "CLAUDE.md") continue;
+    const filePath = path.join(projectDir, entry);
+    const stat = fs.statSync(filePath);
+    if (stat.isFile()) {
+      fs.unlinkSync(filePath);
+    }
+  }
+
+  // Copy snapshot files back
+  const snapshotEntries = fs.readdirSync(snapshotDir);
+  for (const entry of snapshotEntries) {
+    if (entry === "CLAUDE.md") continue;
+    const src = path.join(snapshotDir, entry);
+    const dest = path.join(projectDir, entry);
+    fs.copyFileSync(src, dest);
+  }
+
   return true;
 }

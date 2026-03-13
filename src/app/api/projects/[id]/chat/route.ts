@@ -6,6 +6,7 @@ import {
   getChatHistory,
   touchProject,
   updateProjectName,
+  snapshotProject,
 } from "@/lib/projects";
 import { startClaude, isSessionActive, subscribe, StreamEvent } from "@/lib/claude-stream";
 
@@ -89,6 +90,11 @@ export async function POST(
   const projectDir = getProjectDir(id);
   const history = getChatHistory(id);
   const isFirstMessage = history.filter((m) => m.role === "user").length === 1;
+
+  // Snapshot current files before Claude makes changes
+  if (!isFirstMessage) {
+    snapshotProject(id);
+  }
 
   // Build prompt with conversation history so Claude has context
   let prompt = userMessage;
