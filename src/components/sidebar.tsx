@@ -28,7 +28,7 @@ export function Sidebar({
   onDeleteProject,
 }: SidebarProps) {
   return (
-    <div className="flex h-full w-64 flex-col border-r bg-muted/30">
+    <div className="flex h-full w-64 shrink-0 flex-col overflow-hidden border-r bg-muted/30">
       <div className="flex items-center justify-between p-4">
         <h1 className="text-lg font-bold">KidCode</h1>
         <Button size="icon" variant="ghost" onClick={onNewProject} title="New Project">

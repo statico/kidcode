@@ -142,7 +142,7 @@ function HomeContent() {
   };
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-screen overflow-hidden">
       <Sidebar
         projects={projects}
         activeProjectId={activeProjectId}
@@ -150,10 +150,10 @@ function HomeContent() {
         onNewProject={handleNewProject}
         onDeleteProject={handleDeleteProject}
       />
-      <div className="flex flex-1">
+      <div className="flex flex-1 overflow-hidden">
         {activeProjectId ? (
           <>
-            <div className={`flex-1 ${showPreview ? "w-1/2" : ""}`}>
+            <div className={`flex-1 overflow-hidden ${showPreview ? "w-1/2" : ""}`}>
               <ChatPanel
                 messages={chat.messages}
                 isLoading={chat.isLoading}
@@ -165,7 +165,7 @@ function HomeContent() {
               />
             </div>
             {showPreview && (
-              <div className="w-1/2">
+              <div className="w-1/2 overflow-hidden">
                 <PreviewPanel
                   projectId={activeProjectId}
                   previewFile={previewFile}

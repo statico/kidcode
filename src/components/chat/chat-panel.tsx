@@ -38,8 +38,8 @@ export function ChatPanel({
   }, [messages, activity]);
 
   return (
-    <div className="flex h-full flex-col">
-      <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+    <div className="flex h-full flex-col overflow-hidden">
+      <ScrollArea className="min-h-0 flex-1 p-4" ref={scrollRef}>
         <div className="mx-auto max-w-2xl space-y-4">
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center py-20 text-center">
