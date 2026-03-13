@@ -78,16 +78,14 @@ function HomeContent() {
         .then((versions: string[]) => setHasVersions(versions.length > 0))
         .catch(() => setHasVersions(false));
 
-      // Check if project has HTML files to preview
+      // Check if project has HTML files (don't auto-open, just enable the button)
       fetch(`/api/projects/${activeProjectId}/files`)
         .then((r) => r.json())
         .then((files: string[]) => {
           const htmlFile = files.find((f: string) => f.endsWith(".html"));
           if (htmlFile) {
             setPreviewFile(htmlFile);
-            setShowPreview(true);
             setHasPreviewFile(true);
-            setPreviewRefreshKey((k) => k + 1);
           }
         })
         .catch(() => {});
