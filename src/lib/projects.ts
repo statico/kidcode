@@ -58,6 +58,12 @@ export function createProject(name: string = "New Project"): Project {
   const projectDir = path.join(PROJECTS_DIR, project.id);
   fs.mkdirSync(projectDir, { recursive: true });
 
+  // Create CLAUDE.md to anchor the project root here
+  fs.writeFileSync(
+    path.join(projectDir, "CLAUDE.md"),
+    "# Project\n\nWrite all files in this directory. Use index.html as the main entry point.\n"
+  );
+
   // Initialize empty chat history
   saveChatHistory(project.id, []);
 

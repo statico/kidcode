@@ -42,6 +42,7 @@ export async function* streamClaude(
     "--system-prompt", systemPrompt,
     "--model", "sonnet",
     "--no-session-persistence",
+    "--disable-slash-commands",
   ];
 
   // Remove Claude env vars to allow nested invocation

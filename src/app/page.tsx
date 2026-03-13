@@ -11,6 +11,7 @@ export default function Home() {
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
+  const [previewFile, setPreviewFile] = useState<string>("index.html");
 
   const handleTitle = useCallback(
     async (title: string) => {
@@ -27,7 +28,10 @@ export default function Home() {
     [activeProjectId]
   );
 
-  const handleFileChange = useCallback(() => {
+  const handleFileChange = useCallback((fileName: string) => {
+    if (fileName.endsWith(".html")) {
+      setPreviewFile(fileName);
+    }
     setShowPreview(true);
     setPreviewRefreshKey((k) => k + 1);
   }, []);
@@ -50,9 +54,9 @@ export default function Home() {
   useEffect(() => {
     if (activeProjectId) {
       chat.loadHistory();
-      // Check if project has an index.html to show preview
       setShowPreview(false);
       setPreviewRefreshKey(0);
+      setPreviewFile("index.html");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProjectId]);
@@ -68,6 +72,7 @@ export default function Home() {
     setActiveProjectId(project.id);
     chat.setMessages([]);
     setShowPreview(false);
+    setPreviewFile("index.html");
   };
 
   const handleDeleteProject = async (id: string) => {
@@ -111,6 +116,7 @@ export default function Home() {
               <div className="w-1/2">
                 <PreviewPanel
                   projectId={activeProjectId}
+                  previewFile={previewFile}
                   refreshKey={previewRefreshKey}
                   onClose={() => setShowPreview(false)}
                 />

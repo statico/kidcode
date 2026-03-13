@@ -6,14 +6,15 @@ import { RefreshCw, ExternalLink, X, Maximize2, Minimize2 } from "lucide-react";
 
 interface PreviewPanelProps {
   projectId: string;
+  previewFile: string;
   refreshKey: number;
   onClose: () => void;
 }
 
-export function PreviewPanel({ projectId, refreshKey, onClose }: PreviewPanelProps) {
+export function PreviewPanel({ projectId, previewFile, refreshKey, onClose }: PreviewPanelProps) {
   const [isMaximized, setIsMaximized] = useState(false);
   const [manualRefresh, setManualRefresh] = useState(0);
-  const previewUrl = `/projects/${projectId}/index.html`;
+  const previewUrl = `/projects/${projectId}/${previewFile}`;
 
   const handleRefresh = useCallback(() => {
     setManualRefresh((k) => k + 1);
