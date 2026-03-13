@@ -5,9 +5,11 @@ import {
   appendChatMessage,
   getChatHistory,
   touchProject,
+  updateProjectName,
 } from "@/lib/projects";
-import { streamClaude } from "@/lib/claude-stream";
-import { createSSEStream } from "@/lib/sse";
+import { streamClaude, StreamEvent } from "@/lib/claude-stream";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(
   _request: Request,
@@ -48,14 +50,52 @@ export async function POST(
   const history = getChatHistory(id);
   const isFirstMessage = history.filter((m) => m.role === "user").length === 1;
 
-  const events = streamClaude(id, projectDir, userMessage, isFirstMessage);
-  const stream = createSSEStream(events);
+  const rawEvents = streamClaude(id, projectDir, userMessage, isFirstMessage);
 
-  return new Response(stream, {
+  const encoder = new TextEncoder();
+  const { readable, writable } = new TransformStream();
+  const writer = writable.getWriter();
+
+  // Process events in the background
+  (async () => {
+    try {
+      for await (const event of rawEvents) {
+        // Handle title updates
+        if (event.type === "title") {
+          updateProjectName(id, event.content);
+        }
+
+        const data = JSON.stringify(event);
+        await writer.write(encoder.encode(`event: ${event.type}\ndata: ${data}\n\n`));
+
+        if (event.type === "done") {
+          // Save assistant response
+          const cleanText = event.content.replace(/^TITLE:\s*.+\n*/m, "").trim();
+          if (cleanText) {
+            appendChatMessage(id, {
+              role: "assistant",
+              content: cleanText,
+              timestamp: new Date().toISOString(),
+            });
+          }
+          break;
+        }
+      }
+    } catch (err) {
+      const errorData = JSON.stringify({ type: "error", content: String(err) });
+      await writer.write(encoder.encode(`event: error\ndata: ${errorData}\n\n`));
+    } finally {
+      await writer.close();
+    }
+  })();
+
+  return new Response(readable, {
     headers: {
       "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
+      "Cache-Control": "no-cache, no-transform",
+      "Connection": "keep-alive",
+      "X-Accel-Buffering": "no",
+      "Content-Encoding": "none",
     },
   });
 }

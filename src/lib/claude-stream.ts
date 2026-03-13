@@ -8,7 +8,6 @@ export interface StreamEvent {
   detail?: string;
 }
 
-// Track active processes so we can kill them if needed
 const activeProcesses = new Map<string, ChildProcess>();
 
 export function killProcess(projectId: string): void {
@@ -25,7 +24,6 @@ export async function* streamClaude(
   prompt: string,
   isFirstMessage: boolean
 ): AsyncGenerator<StreamEvent> {
-  // Ensure project directory exists
   const fs = await import("fs");
   fs.mkdirSync(projectDir, { recursive: true });
 
@@ -43,135 +41,117 @@ export async function* streamClaude(
     "--verbose",
     "--system-prompt", systemPrompt,
     "--model", "sonnet",
+    "--no-session-persistence",
   ];
+
+  // Remove Claude env vars to allow nested invocation
+  const env = { ...process.env };
+  delete env.CLAUDECODE;
+  delete env.CLAUDE_CODE_ENTRYPOINT;
 
   const claudeProcess = spawn("claude", args, {
     cwd: projectDir,
-    env: {
-      ...process.env,
-      CLAUDECODE: undefined, // Allow nested invocation
-    },
-    stdio: ["pipe", "pipe", "pipe"],
+    env,
+    stdio: ["ignore", "pipe", "pipe"],
   });
 
   activeProcesses.set(projectId, claudeProcess);
 
-  let buffer = "";
-  let fullText = "";
-
-  const processLine = (line: string): StreamEvent | null => {
-    if (!line.trim()) return null;
-
-    try {
-      const data = JSON.parse(line);
-      return processStreamMessage(data);
-    } catch {
-      // Not valid JSON, skip
-      return null;
-    }
-  };
-
-  const processStreamMessage = (data: Record<string, unknown>): StreamEvent | null => {
-    // Handle different message types from claude --output-format stream-json
-    const type = data.type as string;
-
-    if (type === "assistant") {
-      // Assistant message with content blocks
-      const message = data.message as Record<string, unknown> | undefined;
-      if (message?.content) {
-        const content = message.content as Array<Record<string, unknown>>;
-        for (const block of content) {
-          if (block.type === "text") {
-            const text = block.text as string;
-            fullText += text;
-
-            // Check for title in first message
-            const titleMatch = text.match(/^TITLE:\s*(.+)$/m);
-            if (titleMatch) {
-              const cleanText = text.replace(/^TITLE:\s*.+\n*/m, "");
-              return { type: "title", content: titleMatch[1].trim(), detail: cleanText };
-            }
-
-            return { type: "text", content: text };
-          }
-        }
-      }
-      return null;
-    }
-
-    if (type === "content_block_delta") {
-      const delta = data.delta as Record<string, unknown> | undefined;
-      if (delta?.type === "text_delta") {
-        const text = delta.text as string;
-        fullText += text;
-
-        // Check for title
-        const titleMatch = fullText.match(/^TITLE:\s*(.+)$/m);
-        if (titleMatch && !fullText.includes("\nTITLE:")) {
-          return { type: "title", content: titleMatch[1].trim(), detail: text };
-        }
-
-        return { type: "text", content: text };
-      }
-      if (delta?.type === "thinking_delta") {
-        return { type: "activity", content: "thinking", detail: delta.thinking as string };
-      }
-      return null;
-    }
-
-    if (type === "content_block_start") {
-      const contentBlock = data.content_block as Record<string, unknown> | undefined;
-      if (contentBlock?.type === "tool_use") {
-        const toolName = contentBlock.name as string;
-        return { type: "activity", content: `Using ${toolName}...` };
-      }
-      return null;
-    }
-
-    if (type === "message_start" || type === "message_stop" || type === "content_block_stop") {
-      return null;
-    }
-
-    if (type === "result") {
-      return { type: "done", content: fullText };
-    }
-
-    // Handle tool results that might indicate file changes
-    if (type === "tool_result" || (data.tool_name && data.output)) {
-      const toolName = (data.tool_name || "") as string;
-      const output = (data.output || "") as string;
-
-      if (toolName === "Write" || toolName === "Edit") {
-        const filePath = (data.file_path || "") as string;
-        const fileName = filePath ? path.basename(filePath) : "file";
-        return { type: "file-change", content: fileName, detail: filePath };
-      }
-
-      return { type: "activity", content: `${toolName}: done`, detail: output.slice(0, 200) };
-    }
-
-    return null;
-  };
-
-  // Process stdout
-  const stdoutPromise = new Promise<void>((resolve) => {
-    claudeProcess.stdout!.on("data", (chunk: Buffer) => {
-      buffer += chunk.toString();
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
-
-      for (const line of lines) {
-        // lines are already handled below via the generator
-      }
-    });
-    claudeProcess.stdout!.on("end", resolve);
-  });
-
-  // Actually yield events from stdout
-  // We need a different approach - use an event queue
+  // Event queue for async generator pattern
   const eventQueue: StreamEvent[] = [];
   let resolveWait: (() => void) | null = null;
   let done = false;
+  let buffer = "";
+  let fullText = "";
+  let seenTitle = false;
+
+  function enqueue(event: StreamEvent) {
+    eventQueue.push(event);
+    if (resolveWait) {
+      resolveWait();
+      resolveWait = null;
+    }
+  }
+
+  function processJsonLine(line: string) {
+    if (!line.trim()) return;
+
+    let data: Record<string, unknown>;
+    try {
+      data = JSON.parse(line);
+    } catch {
+      return;
+    }
+
+    const type = data.type as string;
+
+    // Handle assistant messages (contains full content blocks)
+    if (type === "assistant") {
+      const message = data.message as Record<string, unknown> | undefined;
+      if (message?.content) {
+        const contentBlocks = message.content as Array<Record<string, unknown>>;
+        for (const block of contentBlocks) {
+          if (block.type === "text") {
+            let text = block.text as string;
+
+            // Check for and extract title
+            if (!seenTitle) {
+              const titleMatch = text.match(/^TITLE:\s*(.+)$/m);
+              if (titleMatch) {
+                seenTitle = true;
+                enqueue({ type: "title", content: titleMatch[1].trim() });
+                text = text.replace(/^TITLE:\s*.+\n*/m, "");
+              }
+            }
+
+            if (text) {
+              fullText += text;
+              enqueue({ type: "text", content: text });
+            }
+          } else if (block.type === "tool_use") {
+            const toolName = block.name as string;
+            const toolInput = block.input as Record<string, unknown> | undefined;
+
+            enqueue({ type: "activity", content: `Using ${toolName}...` });
+
+            // Detect file changes from Write/Edit tool use
+            if (toolName === "Write" || toolName === "Edit") {
+              const filePath = (toolInput?.file_path || "") as string;
+              if (filePath) {
+                const fileName = path.basename(filePath);
+                enqueue({ type: "file-change", content: fileName, detail: filePath });
+              }
+            }
+          }
+        }
+      }
+      return;
+    }
+
+    // Handle result (final message)
+    if (type === "result") {
+      const resultText = data.result as string | undefined;
+      if (resultText && !fullText) {
+        // If we haven't seen any text yet, use the result
+        let text = resultText;
+        if (!seenTitle) {
+          const titleMatch = text.match(/^TITLE:\s*(.+)$/m);
+          if (titleMatch) {
+            seenTitle = true;
+            enqueue({ type: "title", content: titleMatch[1].trim() });
+            text = text.replace(/^TITLE:\s*.+\n*/m, "");
+          }
+        }
+        if (text) {
+          fullText = text;
+          enqueue({ type: "text", content: text });
+        }
+      }
+      return;
+    }
+
+    // Skip system, rate_limit_event, etc.
+  }
 
   claudeProcess.stdout!.on("data", (chunk: Buffer) => {
     buffer += chunk.toString();
@@ -179,46 +159,37 @@ export async function* streamClaude(
     buffer = lines.pop() || "";
 
     for (const line of lines) {
-      const event = processLine(line);
-      if (event) {
-        eventQueue.push(event);
-        if (resolveWait) {
-          resolveWait();
-          resolveWait = null;
-        }
-      }
+      processJsonLine(line);
     }
   });
 
   claudeProcess.stderr!.on("data", (chunk: Buffer) => {
     const text = chunk.toString();
-    // stderr often contains progress info, ignore most of it
     if (text.includes("Error") || text.includes("error")) {
-      eventQueue.push({ type: "error", content: text });
-      if (resolveWait) {
-        resolveWait();
-        resolveWait = null;
-      }
+      enqueue({ type: "error", content: text.trim() });
     }
   });
 
   claudeProcess.on("close", (code) => {
+    // Process any remaining buffer
+    if (buffer.trim()) {
+      processJsonLine(buffer);
+    }
+
     done = true;
     if (code !== 0 && code !== null) {
-      eventQueue.push({ type: "error", content: `Claude process exited with code ${code}` });
+      enqueue({ type: "error", content: `Claude process exited with code ${code}` });
     }
-    eventQueue.push({ type: "done", content: fullText });
-    if (resolveWait) {
-      resolveWait();
-      resolveWait = null;
-    }
+    enqueue({ type: "done", content: fullText });
     activeProcesses.delete(projectId);
   });
 
-  // Yield events as they come in
+  // Yield events as they arrive
   while (!done || eventQueue.length > 0) {
     if (eventQueue.length > 0) {
-      yield eventQueue.shift()!;
+      const event = eventQueue.shift()!;
+      yield event;
+      if (event.type === "done") return;
     } else if (!done) {
       await new Promise<void>((resolve) => {
         resolveWait = resolve;

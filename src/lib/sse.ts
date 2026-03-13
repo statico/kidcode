@@ -1,7 +1,8 @@
 import { StreamEvent } from "./claude-stream";
 
 export function createSSEStream(
-  events: AsyncGenerator<StreamEvent>
+  events: AsyncGenerator<StreamEvent>,
+  onDone?: (fullText: string) => void
 ): ReadableStream {
   const encoder = new TextEncoder();
 
@@ -14,8 +15,12 @@ export function createSSEStream(
             encoder.encode(`event: ${event.type}\ndata: ${data}\n\n`)
           );
 
-          if (event.type === "done" || event.type === "error") {
+          if (event.type === "done") {
+            onDone?.(event.content);
             break;
+          }
+          if (event.type === "error") {
+            // Still continue — errors might be non-fatal
           }
         }
       } catch (err) {
