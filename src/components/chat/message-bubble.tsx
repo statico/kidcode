@@ -1,5 +1,6 @@
 "use client";
 
+import ReactMarkdown from "react-markdown";
 import { ChatMessage } from "@/hooks/use-chat";
 
 interface MessageBubbleProps {
@@ -18,13 +19,21 @@ export function MessageBubble({ message }: MessageBubbleProps) {
             : "bg-muted text-foreground"
         }`}
       >
-        <div className="whitespace-pre-wrap break-words">
-          {message.content || (
-            <span className="animate-pulse text-muted-foreground">
-              Thinking...
-            </span>
-          )}
-        </div>
+        {message.content ? (
+          isUser ? (
+            <div className="whitespace-pre-wrap break-words">
+              {message.content}
+            </div>
+          ) : (
+            <div className="prose prose-sm max-w-none break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+              <ReactMarkdown>{message.content}</ReactMarkdown>
+            </div>
+          )
+        ) : (
+          <span className="animate-pulse text-muted-foreground">
+            Thinking...
+          </span>
+        )}
       </div>
     </div>
   );
