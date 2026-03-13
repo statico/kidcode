@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Send, Square } from "lucide-react";
+import { ArrowRight, Square } from "lucide-react";
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -70,7 +70,7 @@ export function ChatInput({ onSend, onStop, isLoading, hasMessages }: ChatInputP
           disabled={!value.trim()}
           className="h-12 w-12 rounded-xl shrink-0"
         >
-          <Send className="h-4 w-4" />
+          <ArrowRight className="h-4 w-4" />
         </Button>
       )}
     </div>
