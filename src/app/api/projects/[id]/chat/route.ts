@@ -12,12 +12,17 @@ import { startClaude, isSessionActive, subscribe, StreamEvent } from "@/lib/clau
 
 export const dynamic = "force-dynamic";
 
+function log(prefix: string, ...args: unknown[]) {
+  console.log(`[chat-api:${prefix}]`, ...args);
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
   const reconnect = request.nextUrl.searchParams.get("reconnect");
+  log("GET", `id=${id} reconnect=${reconnect}`);
 
   // Check for active session and stream events
   if (reconnect === "1") {
@@ -73,6 +78,7 @@ export async function POST(
 
   const body = await request.json();
   const userMessage = body.message as string;
+  log("POST", `id=${id} message="${userMessage?.slice(0, 80)}"`);
 
   if (!userMessage?.trim()) {
     return NextResponse.json({ error: "Message required" }, { status: 400 });

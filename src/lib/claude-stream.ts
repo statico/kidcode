@@ -2,6 +2,10 @@ import { spawn, ChildProcess } from "child_process";
 import path from "path";
 import { SYSTEM_PROMPT } from "./constants";
 
+function log(prefix: string, ...args: unknown[]) {
+  console.log(`[claude-stream:${prefix}]`, ...args);
+}
+
 export interface StreamEvent {
   type: "text" | "activity" | "file-change" | "title" | "done" | "error";
   content: string;
@@ -114,6 +118,7 @@ export function startClaude(
   let seenTitle = false;
 
   function emit(event: StreamEvent) {
+    log("emit", `[${projectId}] ${event.type}: ${event.content?.slice(0, 100)}`);
     session.eventBuffer.push(event);
     for (const sub of session.subscribers) {
       sub(event);
@@ -127,10 +132,12 @@ export function startClaude(
     try {
       data = JSON.parse(line);
     } catch {
+      log("parse", `[${projectId}] failed to parse: ${line.slice(0, 200)}`);
       return;
     }
 
     const type = data.type as string;
+    log("json", `[${projectId}] type=${type}`);
 
     if (type === "assistant") {
       const message = data.message as Record<string, unknown> | undefined;
@@ -205,12 +212,16 @@ export function startClaude(
 
   claudeProcess.stderr!.on("data", (chunk: Buffer) => {
     const text = chunk.toString();
+    log("stderr", `[${projectId}] ${text.slice(0, 500)}`);
     if (text.includes("Error") || text.includes("error")) {
       emit({ type: "error", content: text.trim() });
     }
   });
 
+  log("start", `[${projectId}] Claude process started, pid=${claudeProcess.pid}`);
+
   claudeProcess.on("close", (code) => {
+    log("close", `[${projectId}] Claude process exited code=${code}`);
     if (buffer.trim()) {
       processJsonLine(buffer);
     }

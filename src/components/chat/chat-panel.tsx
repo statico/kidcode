@@ -32,13 +32,11 @@ export function ChatPanel({
   onUndo,
   onShowPreview,
 }: ChatPanelProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Auto-scroll to bottom on new messages
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    // Auto-scroll to bottom on new messages or activity changes
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, activity]);
 
   return (
@@ -56,7 +54,7 @@ export function ChatPanel({
           </Button>
         </div>
       )}
-      <ScrollArea className="min-h-0 flex-1 p-4" ref={scrollRef}>
+      <ScrollArea className="min-h-0 flex-1 p-4">
         <div className="mx-auto max-w-2xl space-y-4">
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -71,7 +69,8 @@ export function ChatPanel({
           {messages.map((msg, i) => (
             <MessageBubble key={i} message={msg} />
           ))}
-          {isLoading && activity && <ActivityIndicator activity={activity} />}
+          {isLoading && <ActivityIndicator activity={activity || "Thinking..."} />}
+          <div ref={bottomRef} />
         </div>
       </ScrollArea>
       <div className="border-t p-4">
