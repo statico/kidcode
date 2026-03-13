@@ -1,14 +1,23 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { Suspense, useState, useEffect, useCallback } from "react";
+import { useQueryState } from "nuqs";
 import { Sidebar, ProjectItem } from "@/components/sidebar";
 import { ChatPanel } from "@/components/chat/chat-panel";
 import { PreviewPanel } from "@/components/preview/preview-panel";
 import { useChat } from "@/hooks/use-chat";
 
 export default function Home() {
+  return (
+    <Suspense>
+      <HomeContent />
+    </Suspense>
+  );
+}
+
+function HomeContent() {
   const [projects, setProjects] = useState<ProjectItem[]>([]);
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [activeProjectId, setActiveProjectId] = useQueryState("project");
   const [showPreview, setShowPreview] = useState(false);
   const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
   const [previewFile, setPreviewFile] = useState<string>("index.html");

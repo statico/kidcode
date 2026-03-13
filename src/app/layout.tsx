@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "@fontsource/lato/400.css";
 import "@fontsource/lato/700.css";
 import { Geist_Mono } from "next/font/google";
+import { NuqsAdapter } from "nuqs/adapters/next/app";
 import "./globals.css";
 
 const geistMono = Geist_Mono({
@@ -24,7 +25,7 @@ export default function RootLayout({
       <body
         className={`font-sans ${geistMono.variable} antialiased`}
       >
-        {children}
+        <NuqsAdapter>{children}</NuqsAdapter>
       </body>
     </html>
   );
