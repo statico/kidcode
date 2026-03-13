@@ -8,9 +8,10 @@ interface ChatInputProps {
   onSend: (message: string) => void;
   onStop: () => void;
   isLoading: boolean;
+  hasMessages: boolean;
 }
 
-export function ChatInput({ onSend, onStop, isLoading }: ChatInputProps) {
+export function ChatInput({ onSend, onStop, isLoading, hasMessages }: ChatInputProps) {
   const [value, setValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -48,7 +49,7 @@ export function ChatInput({ onSend, onStop, isLoading }: ChatInputProps) {
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="Tell me what to build..."
+        placeholder={hasMessages ? "Reply..." : "Tell me what to build..."}
         className="flex-1 resize-none rounded-xl border bg-background px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-ring min-h-[48px] max-h-[200px]"
         rows={1}
         disabled={isLoading}

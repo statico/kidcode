@@ -63,6 +63,7 @@ export function ChatPanel({
             onSend={onSend}
             onStop={onStop}
             isLoading={isLoading}
+            hasMessages={messages.length > 0}
           />
           {/* TODO: re-enable undo button once we have a good UX for it
           {hasVersions && !isLoading && (
