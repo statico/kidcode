@@ -14,7 +14,7 @@ interface PreviewPanelProps {
 export function PreviewPanel({ projectId, previewFile, refreshKey, onClose }: PreviewPanelProps) {
   const [isMaximized, setIsMaximized] = useState(false);
   const [manualRefresh, setManualRefresh] = useState(0);
-  const previewUrl = `/projects/${projectId}/${previewFile}`;
+  const previewUrl = `/api/projects/${projectId}/files/${previewFile}`;
 
   const handleRefresh = useCallback(() => {
     setManualRefresh((k) => k + 1);

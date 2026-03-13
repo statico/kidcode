@@ -50,13 +50,26 @@ export default function Home() {
       .catch(() => {});
   }, []);
 
-  // Load chat history when project changes
+  // Load chat history and check for existing files when project changes
   useEffect(() => {
     if (activeProjectId) {
       chat.loadHistory();
       setShowPreview(false);
       setPreviewRefreshKey(0);
       setPreviewFile("index.html");
+
+      // Check if project has HTML files to preview
+      fetch(`/api/projects/${activeProjectId}/files`)
+        .then((r) => r.json())
+        .then((files: string[]) => {
+          const htmlFile = files.find((f: string) => f.endsWith(".html"));
+          if (htmlFile) {
+            setPreviewFile(htmlFile);
+            setShowPreview(true);
+            setPreviewRefreshKey((k) => k + 1);
+          }
+        })
+        .catch(() => {});
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProjectId]);
